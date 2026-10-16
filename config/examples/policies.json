@@ -1,0 +1,250 @@
+{
+  "schemaVersion": "1.0",
+  "policies": [
+    {
+      "policyId": "EXAMPLE-WINDOWS-FIREWALL",
+      "policyVersion": "1.0.0",
+      "provider": "windows",
+      "platform": "Windows",
+      "securityObjective": "Maintain host firewall protection.",
+      "severity": "high",
+      "desiredState": {
+        "hostFirewall": "enabled"
+      },
+      "enforcementMode": "recommend",
+      "prerequisites": ["windows-edition-and-management-source-verified"],
+      "requiredPermissions": ["Provider-specific access to be determined."],
+      "licensingRequirements": ["Applicable Windows management entitlements to be verified."],
+      "capabilityRequirements": ["managed-host-firewall-policy"],
+      "settings": {
+        "hostFirewall": {
+          "enabled": true
+        }
+      },
+      "exclusions": [],
+      "dependencies": [],
+      "conflicts": [],
+      "deploymentRing": "pilot",
+      "validationSteps": ["Verify Windows edition, supported management interface, and policy semantics."],
+      "verificationSteps": ["Verify reported firewall policy and endpoint state using approved read-only evidence."],
+      "rollback": {
+        "required": true,
+        "plan": "Restore the reviewed prior firewall policy and confirm management connectivity.",
+        "destructiveConfirmationRequired": true
+      },
+      "owner": "Example Security Owner",
+      "reviewDate": "2027-10-16",
+      "illustrative": true
+    },
+    {
+      "policyId": "EXAMPLE-GOOGLE-ADMIN-MFA",
+      "policyVersion": "1.0.0",
+      "provider": "google-workspace",
+      "platform": "Google Workspace",
+      "securityObjective": "Require strong authentication for privileged accounts.",
+      "severity": "critical",
+      "desiredState": {
+        "privilegedAuthentication": "strong-authentication-required"
+      },
+      "enforcementMode": "recommend",
+      "prerequisites": ["workspace-edition-api-and-authentication-model-verified"],
+      "requiredPermissions": ["Provider-specific least-privilege permission to be verified."],
+      "licensingRequirements": ["Workspace edition and feature entitlement to be verified."],
+      "capabilityRequirements": ["admin-authentication-policy"],
+      "settings": {
+        "privilegedAuthentication": {
+          "strongAuthenticationRequired": true
+        }
+      },
+      "exclusions": [],
+      "dependencies": [],
+      "conflicts": [],
+      "deploymentRing": "pilot",
+      "validationSteps": ["Verify tenant edition, supported API, authentication flow, and required privileges."],
+      "verificationSteps": ["Verify effective provider state using an approved read-only interface."],
+      "rollback": {
+        "required": true,
+        "plan": "Restore the prior approved authentication policy after impact review.",
+        "destructiveConfirmationRequired": true
+      },
+      "owner": "Example Security Owner",
+      "reviewDate": "2027-10-16",
+      "illustrative": true
+    },
+    {
+      "policyId": "EXAMPLE-CHROME-BROWSER-PROTECTION",
+      "policyVersion": "1.0.0",
+      "provider": "chrome-enterprise",
+      "platform": "Chrome Enterprise",
+      "securityObjective": "Use supported browser protections against unsafe content.",
+      "severity": "high",
+      "desiredState": {
+        "browserProtection": "organization-approved"
+      },
+      "enforcementMode": "recommend",
+      "prerequisites": ["chrome-management-source-and-edition-verified"],
+      "requiredPermissions": ["Provider-specific management read permission to be verified."],
+      "licensingRequirements": ["Chrome management entitlement to be verified."],
+      "capabilityRequirements": ["effective-browser-policy-read"],
+      "settings": {
+        "browserProtection": {
+          "organizationApproved": true
+        }
+      },
+      "exclusions": [],
+      "dependencies": [],
+      "conflicts": [],
+      "deploymentRing": "pilot",
+      "validationSteps": ["Verify browser version, management source, and supported policy semantics."],
+      "verificationSteps": ["Check effective browser policy status, source, and errors."],
+      "rollback": {
+        "required": true,
+        "plan": "Restore the reviewed prior browser setting after impact review.",
+        "destructiveConfirmationRequired": true
+      },
+      "owner": "Example Security Owner",
+      "reviewDate": "2027-10-16",
+      "illustrative": true
+    },
+    {
+      "policyId": "EXAMPLE-ANDROID-DEVICE-LOCK",
+      "policyVersion": "1.0.0",
+      "provider": "android-enterprise",
+      "platform": "Android Enterprise",
+      "securityObjective": "Require a secure screen lock on managed devices.",
+      "severity": "high",
+      "desiredState": {
+        "screenLock": "required"
+      },
+      "enforcementMode": "recommend",
+      "prerequisites": ["android-management-mode-and-edition-verified"],
+      "requiredPermissions": ["Provider-specific management read permission to be verified."],
+      "licensingRequirements": ["Applicable Android management entitlement to be verified."],
+      "capabilityRequirements": ["managed-device-lock-policy"],
+      "settings": {
+        "screenLock": {
+          "required": true
+        }
+      },
+      "exclusions": [],
+      "dependencies": [],
+      "conflicts": [],
+      "deploymentRing": "pilot",
+      "validationSteps": ["Verify management mode, supported controls, and enrollment scope."],
+      "verificationSteps": ["Verify provider-reported policy state and managed endpoint behavior."],
+      "rollback": {
+        "required": true,
+        "plan": "Restore the reviewed prior device-lock policy after impact review.",
+        "destructiveConfirmationRequired": true
+      },
+      "owner": "Example Security Owner",
+      "reviewDate": "2027-10-16",
+      "illustrative": true
+    },
+    {
+      "policyId": "EXAMPLE-VPN-SECURE-REMOTE-ACCESS",
+      "policyVersion": "1.0.0",
+      "provider": "vpn",
+      "platform": "VPN provider not selected",
+      "securityObjective": "Require approved secure remote access for organizational resources.",
+      "severity": "high",
+      "desiredState": {
+        "remoteAccess": "approved-secure-access"
+      },
+      "enforcementMode": "recommend",
+      "prerequisites": ["vpn-provider-client-and-emergency-access-verified"],
+      "requiredPermissions": ["Provider-specific read permission to be verified."],
+      "licensingRequirements": ["VPN product and license entitlement to be verified."],
+      "capabilityRequirements": ["managed-secure-remote-access"],
+      "settings": {
+        "remoteAccess": {
+          "approvedSecureAccessRequired": true
+        }
+      },
+      "exclusions": [],
+      "dependencies": [],
+      "conflicts": [],
+      "deploymentRing": "pilot",
+      "validationSteps": ["Verify provider, client, supported controls, failover, and emergency access."],
+      "verificationSteps": ["Verify reported connection policy and endpoint behavior."],
+      "rollback": {
+        "required": true,
+        "plan": "Restore recorded remote-access settings and confirm emergency connectivity.",
+        "destructiveConfirmationRequired": true
+      },
+      "owner": "Example Security Owner",
+      "reviewDate": "2027-10-16",
+      "illustrative": true
+    },
+    {
+      "policyId": "EXAMPLE-DNS-SECURE-RESOLUTION",
+      "policyVersion": "1.0.0",
+      "provider": "dns",
+      "platform": "DNS provider not selected",
+      "securityObjective": "Use an approved resolver and filtering configuration.",
+      "severity": "medium",
+      "desiredState": {
+        "dnsFiltering": "approved-profile"
+      },
+      "enforcementMode": "recommend",
+      "prerequisites": ["dns-provider-client-and-failover-verified"],
+      "requiredPermissions": ["Provider-specific read permission to be verified."],
+      "licensingRequirements": ["DNS product and license entitlement to be verified."],
+      "capabilityRequirements": ["managed-dns-filtering"],
+      "settings": {
+        "dnsFiltering": {
+          "approvedProfileRequired": true
+        }
+      },
+      "exclusions": [],
+      "dependencies": [],
+      "conflicts": [],
+      "deploymentRing": "pilot",
+      "validationSteps": ["Verify resolver ownership, client support, and failover behavior."],
+      "verificationSteps": ["Verify applied resolver configuration and filtering outcomes."],
+      "rollback": {
+        "required": true,
+        "plan": "Restore recorded resolver settings and confirm name resolution.",
+        "destructiveConfirmationRequired": true
+      },
+      "owner": "Example Security Owner",
+      "reviewDate": "2027-10-16",
+      "illustrative": true
+    },
+    {
+      "policyId": "EXAMPLE-NETWORK-SEGMENTATION",
+      "policyVersion": "1.0.0",
+      "provider": "network-security",
+      "platform": "Network equipment not selected",
+      "securityObjective": "Restrict network paths to reviewed least-privilege flows.",
+      "severity": "high",
+      "desiredState": {
+        "networkAccess": "least-privilege-segments"
+      },
+      "enforcementMode": "recommend",
+      "prerequisites": ["network-topology-vendor-and-recovery-path-verified"],
+      "requiredPermissions": ["Provider-specific read permission to be verified."],
+      "licensingRequirements": ["Network equipment and security entitlements to be verified."],
+      "capabilityRequirements": ["managed-network-segmentation"],
+      "settings": {
+        "networkSegmentation": {
+          "leastPrivilegeRequired": true
+        }
+      },
+      "exclusions": [],
+      "dependencies": [],
+      "conflicts": [],
+      "deploymentRing": "pilot",
+      "validationSteps": ["Document topology, dependencies, vendor-supported controls, and recovery access."],
+      "verificationSteps": ["Verify reported policy state and test approved and denied traffic paths."],
+      "rollback": {
+        "required": true,
+        "plan": "Restore the reviewed prior network configuration using vendor-supported recovery.",
+        "destructiveConfirmationRequired": true
+      },
+      "owner": "Example Security Owner",
+      "reviewDate": "2027-10-16",
+      "illustrative": true
+    }
+  ]
+}

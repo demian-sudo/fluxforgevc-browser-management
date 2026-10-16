@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "registryType": "static-local-reference",
+  "reviewedAt": "2026-10-16",
+  "reviewBasis": "Repository inspection only; no provider was contacted.",
+  "providerContacted": false,
+  "providers": {
+    "windows": {
+      "adapterStatus": "not-implemented",
+      "capabilities": {}
+    },
+    "microsoft-intune": {
+      "adapterStatus": "not-implemented",
+      "capabilities": {}
+    },
+    "google-workspace": {
+      "adapterStatus": "not-implemented",
+      "capabilities": {}
+    },
+    "chrome-enterprise": {
+      "adapterStatus": "not-implemented",
+      "capabilities": {}
+    },
+    "android-enterprise": {
+      "adapterStatus": "not-implemented",
+      "capabilities": {}
+    },
+    "vpn": {
+      "adapterStatus": "not-implemented",
+      "capabilities": {}
+    },
+    "dns": {
+      "adapterStatus": "not-implemented",
+      "capabilities": {}
+    },
+    "network-security": {
+      "adapterStatus": "not-implemented",
+      "capabilities": {}
+    }
+  }
+}

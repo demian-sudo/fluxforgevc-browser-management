@@ -1,0 +1,66 @@
+# FluxForgeVC Unified Enterprise Security & Policy Management
+
+An offline-first foundation for describing and validating enterprise security policies. This initial release does not connect to management providers or deploy configuration.
+
+## Current capabilities
+
+- Versioned JSON policy schema and sanitized illustrative examples.
+- Offline schema, dependency, conflict, prerequisite, and local capability validation.
+- Sanitized JSON and Markdown reports with separate desired and observed states.
+- Credential-free PowerShell tests and GitHub Actions validation.
+
+Provider adapters, live inventory, policy deployment, pilot execution, and rollback are not implemented. No capability or license is inferred from an example policy.
+
+## Requirements
+
+- PowerShell 7.4 or later (`pwsh`).
+- GitHub Actions runs the PowerShell runtime included in `ubuntu-latest`; its exact version follows the runner image and no setup action pins it. The workflow uses no production secrets.
+- `actions/checkout` is pinned to an immutable commit. Review and update the pin deliberately when adopting security fixes.
+
+## Validate the examples offline
+
+From the repository root:
+
+```powershell
+pwsh -NoProfile -File .\src\Invoke-FluxForgePolicyValidation.ps1
+```
+
+The validator reads only local policy, schema, and capability registry files. It never authenticates, makes network requests, or writes provider configuration. It writes JSON and Markdown reports under `reports/policy-audit`; this directory is ignored by Git. The report's `isValid` and `validationExitCode` indicate structural/cross-policy validation outcome. `NOT_VERIFIED` means there is no provider or endpoint observation; it is not a pass.
+
+Select among the implemented offline modes:
+
+```powershell
+pwsh -NoProfile -File .\src\Invoke-FluxForgePolicyValidation.ps1 -Mode inventory
+pwsh -NoProfile -File .\src\Invoke-FluxForgePolicyValidation.ps1 -Mode audit
+pwsh -NoProfile -File .\src\Invoke-FluxForgePolicyValidation.ps1 -Mode plan
+```
+
+`pilot`, `enforce`, and `rollback` are recognized but blocked before processing inputs or writing reports. They are future modes, not available operations. A dry run is local-only and has no provider client.
+
+## Run tests
+
+```powershell
+pwsh -NoProfile -File .\tests\Test-FluxForgePolicyFoundation.ps1
+```
+
+Tests create temporary fixtures and reports, then remove them. They do not require production credentials or contact a provider.
+
+## Policy inputs
+
+- Schema: [config/schema/policy.schema.json](config/schema/policy.schema.json)
+- Illustrative example policies: [config/examples/policies.json](config/examples/policies.json)
+- Local capability reference: [config/provider-capabilities.json](config/provider-capabilities.json)
+
+The examples cover Windows, Google Workspace, Chrome Enterprise, Android Enterprise, VPN, DNS, and network security. They are not provider-ready configurations. Unknown capabilities and unconfirmed prerequisites remain unverified or not configured.
+
+## Documentation
+
+- [Architecture and migration plan](docs/architecture/Policy-Foundation.md)
+- [Schema and validation guide](docs/Policy-Schema-and-Validation.md)
+- [Audit results and security handling](docs/Audit-Results-and-Security.md)
+
+## Security boundaries
+
+Never add credentials, tokens, private keys, recovery material, or unnecessary personal/device data to policy files or source control. Review local reports before sharing. `.gitignore` excludes generated reports and common secret material; it is a safeguard, not a substitute for review.
+
+No Google Workspace, Microsoft Graph, Intune, VPN, DNS, or network provider was contacted to build or test this foundation. Verify provider APIs, permissions, tenant prerequisites, and licensing before designing an adapter.
