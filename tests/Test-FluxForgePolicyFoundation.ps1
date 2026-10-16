@@ -254,13 +254,13 @@ try {
         'app.credentials.json',
         'session_token.txt',
         'local.settings.json',
-        'config\local.production.json',
-        'reports\policy-audit\report.json'
+        'config/local.production.json',
+        'reports/policy-audit/report.json'
     )) {
         & $gitCommand.Source -C $projectRoot check-ignore --no-index --quiet -- $ignoredPath
         Assert-True ($LASTEXITCODE -eq 0) "Sensitive path '$ignoredPath' must be ignored by Git."
     }
-    foreach ($sourcePath in @('config\examples\policies.json', 'src\SecretManager.ps1', 'src\AccessTokenPolicy.ps1')) {
+    foreach ($sourcePath in @('config/examples/policies.json', 'src/SecretManager.ps1', 'src/AccessTokenPolicy.ps1')) {
         & $gitCommand.Source -C $projectRoot check-ignore --no-index --quiet -- $sourcePath
         Assert-True ($LASTEXITCODE -ne 0) "Ordinary example/source path '$sourcePath' must not be ignored."
     }
