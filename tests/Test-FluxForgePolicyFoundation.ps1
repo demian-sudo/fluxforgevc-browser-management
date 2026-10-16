@@ -273,6 +273,8 @@ try {
     $readmeText = Get-Content -LiteralPath (Join-Path $projectRoot 'README.md') -Raw
     Assert-True ($readmeText.Contains('runtime included in `ubuntu-latest`') -and -not $readmeText.Contains('PowerShell setup action')) 'README must describe the runner-provided PowerShell runtime accurately.'
 
+    # Expected nonzero git check-ignore results must not become the test process exit code.
+    $global:LASTEXITCODE = 0
     Write-Host "PASS: $script:testCount offline policy assertions passed."
 }
 finally {
