@@ -113,6 +113,97 @@ function Get-SettingLeaves {
     }
 }
 
+function Get-CyclicPolicyIds {
+    param(
+        [Parameter(Mandatory)]
+        [System.Collections.IDictionary]$PolicyIds
+    )
+
+    $orderedPolicyIds = [string[]]@($PolicyIds.Keys)
+    [Array]::Sort($orderedPolicyIds, [System.StringComparer]::Ordinal)
+    $adjacency = @{}
+    $reverseAdjacency = @{}
+    foreach ($policyId in $orderedPolicyIds) {
+        $adjacency[$policyId] = [System.Collections.Generic.List[string]]::new()
+        $reverseAdjacency[$policyId] = [System.Collections.Generic.List[string]]::new()
+    }
+
+    foreach ($policyId in $orderedPolicyIds) {
+        foreach ($dependency in @($PolicyIds[$policyId].dependencies)) {
+            $dependencyId = [string]$dependency
+            if ($PolicyIds.Contains($dependencyId) -and $dependencyId -ne $policyId) {
+                $adjacency[$policyId].Add($dependencyId)
+                $reverseAdjacency[$dependencyId].Add($policyId)
+            }
+        }
+    }
+    foreach ($policyId in $orderedPolicyIds) {
+        $adjacency[$policyId].Sort([System.StringComparer]::Ordinal)
+        $reverseAdjacency[$policyId].Sort([System.StringComparer]::Ordinal)
+    }
+
+    # Iterative Kosaraju traversal avoids recursive calls while identifying every cyclic SCC.
+    $visited = @{}
+    $finishOrder = [System.Collections.Generic.List[string]]::new()
+    foreach ($rootPolicyId in $orderedPolicyIds) {
+        if ($visited.ContainsKey($rootPolicyId)) {
+            continue
+        }
+
+        $visited[$rootPolicyId] = $true
+        $frames = [System.Collections.Generic.Stack[object]]::new()
+        $frames.Push([pscustomobject]@{ PolicyId = $rootPolicyId; NextNeighbor = 0 })
+        while ($frames.Count -gt 0) {
+            $frame = $frames.Peek()
+            $neighbors = $adjacency[$frame.PolicyId]
+            if ($frame.NextNeighbor -lt $neighbors.Count) {
+                $neighbor = $neighbors[$frame.NextNeighbor]
+                $frame.NextNeighbor++
+                if (-not $visited.ContainsKey($neighbor)) {
+                    $visited[$neighbor] = $true
+                    $frames.Push([pscustomobject]@{ PolicyId = $neighbor; NextNeighbor = 0 })
+                }
+            }
+            else {
+                [void]$frames.Pop()
+                $finishOrder.Add($frame.PolicyId)
+            }
+        }
+    }
+
+    $visited = @{}
+    $cyclicPolicyIds = @{}
+    for ($finishIndex = $finishOrder.Count - 1; $finishIndex -ge 0; $finishIndex--) {
+        $rootPolicyId = $finishOrder[$finishIndex]
+        if ($visited.ContainsKey($rootPolicyId)) {
+            continue
+        }
+
+        $component = [System.Collections.Generic.List[string]]::new()
+        $pending = [System.Collections.Generic.Stack[string]]::new()
+        $visited[$rootPolicyId] = $true
+        $pending.Push($rootPolicyId)
+        while ($pending.Count -gt 0) {
+            $policyId = $pending.Pop()
+            $component.Add($policyId)
+            foreach ($neighbor in $reverseAdjacency[$policyId]) {
+                if (-not $visited.ContainsKey($neighbor)) {
+                    $visited[$neighbor] = $true
+                    $pending.Push($neighbor)
+                }
+            }
+        }
+
+        if ($component.Count -gt 1) {
+            foreach ($policyId in $component) {
+                $cyclicPolicyIds[$policyId] = $true
+            }
+        }
+    }
+
+    return $cyclicPolicyIds
+}
+
 if (-not (Test-Path -LiteralPath $PolicyPath -PathType Leaf)) {
     Add-PolicyFinding -Status ERROR -PolicyId 'DOCUMENT' -Message 'Policy document is unavailable.' -Evidence 'The configured local policy file was not found.' -Confidence high -RecommendedNextAction 'Provide a readable local policy document.'
 }
@@ -163,13 +254,21 @@ if ($schemaValid -and $policyDocument -and $policyDocument.policies) {
         }
     }
 
+    $cyclicPolicyIds = Get-CyclicPolicyIds -PolicyIds $policyIds
+    $cycleFindingAdded = @{}
     foreach ($policy in $policyDocument.policies) {
         $policyId = [string]$policy.policyId
-        $errorCountBefore = @($findings | Where-Object { $_.policyId -eq $policyId -and $_.status -eq 'ERROR' }).Count
+        $policyReference = $safePolicyReferences[$policyId]
+        $errorCountBefore = @($findings | Where-Object { $_.policyRef -eq $policyReference -and $_.status -eq 'ERROR' }).Count
         $hasUnsupported = $false
         $hasUnknown = $false
         $hasMissingPrerequisite = $false
         $desiredStatus = if ($policy.desiredState.Count -gt 0) { 'specified' } else { 'not-specified' }
+
+        if ($cyclicPolicyIds.ContainsKey($policyId) -and -not $cycleFindingAdded.ContainsKey($policyId)) {
+            Add-PolicyFinding -Status ERROR -PolicyId $policyId -Message 'Circular policy dependency detected.' -Evidence 'The policy participates in a cycle among declared policy dependencies.' -Confidence high -RecommendedNextAction 'Break the dependency cycle before planning deployment.'
+            $cycleFindingAdded[$policyId] = $true
+        }
 
         $parsedReviewDate = [datetime]::MinValue
         $validReviewDate = [datetime]::TryParseExact(
@@ -246,7 +345,7 @@ if ($schemaValid -and $policyDocument -and $policyDocument.policies) {
             }
         }
 
-        $errorCountAfter = @($findings | Where-Object { $_.policyId -eq $policyId -and $_.status -eq 'ERROR' }).Count
+        $errorCountAfter = @($findings | Where-Object { $_.policyRef -eq $policyReference -and $_.status -eq 'ERROR' }).Count
         if ($errorCountAfter -gt $errorCountBefore -or $duplicatePolicyIds.ContainsKey($policyId)) {
             $policyStatus = 'ERROR'
         }
