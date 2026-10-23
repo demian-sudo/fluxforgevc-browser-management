@@ -20,7 +20,7 @@ Report generation uses an explicit allow-list: generated policy references, cons
 
 Schema-invalid or malformed policy files still produce a sanitized report when the output path is writable, then terminate with a nonzero process exit code. Real calendar-date validation supplements the JSON Schema format annotation.
 
-The validator makes no network requests and has no credential flow. This repository contains no provider adapter, deployment, or rollback implementation.
+The policy validator makes no network requests and has no credential flow. A separate opt-in Microsoft Graph adapter supports read-only requests, but no tenant authentication has been verified by repository tests. Policy deployment and rollback are not implemented.
 
 ## Local audit event log
 

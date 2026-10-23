@@ -1,6 +1,6 @@
 # FluxForgeVC Unified Enterprise Security & Policy Management
 
-An offline-first foundation for describing and validating enterprise security policies. This initial release does not connect to management providers or deploy configuration.
+An offline-first foundation for describing and validating enterprise security policies. Policy validation does not connect to management providers or deploy configuration; a separate, explicitly invoked Microsoft Graph adapter supports read-only requests only.
 
 ## Current capabilities
 
@@ -49,6 +49,14 @@ pwsh -NoProfile -File .\tests\Test-FluxForgePolicyFoundation.ps1
 
 Tests create temporary fixtures and reports, then remove them. They do not require production credentials or contact a provider.
 
+## Audit the local environment
+
+Run `pwsh -NoProfile -File ./scripts/audit/Test-FluxForgeEnvironment.ps1` to create a read-only JSON audit report. In Codespaces, results describe the Linux container—not the developer's physical Windows computer. For Windows Defender, firewall, Windows Update, and BitLocker checks, run PowerShell 7.4+ locally on the Windows device. The audit does not attempt elevation; administrator privileges may allow additional read-only information. See [Local environment audit](docs/Environment-Audit.md) for usage and limitations.
+
+## Windows security audit and configuration preview
+
+On the local Windows 10/11 computer, run `pwsh -NoProfile -File .\scripts\windows\Test-FluxForgeWindowsSecurity.ps1` for the default read-only audit. The Windows framework can preview supported firewall settings and has narrowly gated, backup-protected Apply/Restore operations; no device or tenant operation is implemented. Linux Codespaces cannot configure the physical Windows host. See [Windows security framework](docs/Windows-Security-Framework.md) for prerequisites, safeguards, recovery, and limitations.
+
 ## Policy inputs
 
 - Schema: [config/schema/policy.schema.json](config/schema/policy.schema.json)
@@ -63,6 +71,7 @@ The examples cover Windows, Google Workspace, Chrome Enterprise, Android Enterpr
 - [Schema and validation guide](docs/Policy-Schema-and-Validation.md)
 - [Audit results and security handling](docs/Audit-Results-and-Security.md)
 - [Microsoft Graph read-only adapter](docs/Microsoft-Graph-Read-Only.md)
+- [Windows security framework](docs/Windows-Security-Framework.md)
 
 ## Security boundaries
 

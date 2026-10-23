@@ -24,4 +24,7 @@ jobs:
           }
       - name: Run offline tests
         shell: pwsh
-        run: ./tests/Test-FluxForgePolicyFoundation.ps1
+        run: |
+          ./tests/Test-FluxForgePolicyFoundation.ps1
+          ./tests/Test-FluxForgeEnvironmentAudit.ps1
+          ./tests/Test-FluxForgeWindowsSecurity.ps1
