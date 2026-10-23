@@ -1,13 +1,20 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://fluxforgevc.com/schemas/policy-1.0.json",
+  "$id": "https://fluxforgevc.com/schemas/policy-1.1.json",
   "title": "FluxForgeVC policy document",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "policies"],
+  "required": ["schemaVersion", "deviceGroups", "policies"],
   "properties": {
     "schemaVersion": {
-      "const": "1.0"
+      "const": "1.1"
+    },
+    "deviceGroups": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/deviceGroup"
+      }
     },
     "policies": {
       "type": "array",
@@ -25,6 +32,126 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "policyReferenceList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9][A-Z0-9._-]{2,79}$"
+      }
+    },
+    "deviceTypeList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["windows", "android"]
+      }
+    },
+    "operatingSystemList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "windows-10",
+          "windows-11",
+          "android-10",
+          "android-11",
+          "android-12",
+          "android-13",
+          "android-14",
+          "android-15"
+        ]
+      }
+    },
+    "deviceGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["groupId", "deviceType", "operatingSystems", "parentGroupIds"],
+      "properties": {
+        "groupId": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9._-]{2,79}$"
+        },
+        "deviceType": {
+          "enum": ["windows", "android"]
+        },
+        "operatingSystems": {
+          "$ref": "#/definitions/operatingSystemList"
+        },
+        "parentGroupIds": {
+          "$ref": "#/definitions/policyReferenceList"
+        }
+      }
+    },
+    "deviceTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "deviceTypes", "operatingSystems", "groupIds"],
+      "properties": {
+        "kind": {
+          "const": "device"
+        },
+        "deviceTypes": {
+          "$ref": "#/definitions/deviceTypeList"
+        },
+        "operatingSystems": {
+          "$ref": "#/definitions/operatingSystemList"
+        },
+        "groupIds": {
+          "$ref": "#/definitions/policyReferenceList"
+        },
+        "deviceIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^DEVICE-[A-Z0-9]{8,32}$"
+          }
+        },
+        "excludedGroupIds": {
+          "$ref": "#/definitions/policyReferenceList"
+        },
+        "excludedDeviceIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^DEVICE-[A-Z0-9]{8,32}$"
+          }
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["groupIds"],
+          "properties": { "groupIds": { "minItems": 1 } }
+        },
+        {
+          "required": ["deviceIds"],
+          "properties": { "deviceIds": { "minItems": 1 } }
+        }
+      ]
+    },
+    "providerTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "providerScope"],
+      "properties": {
+        "kind": {
+          "const": "provider"
+        },
+        "providerScope": {
+          "enum": ["organization", "tenant"]
+        }
+      }
+    },
+    "target": {
+      "oneOf": [
+        { "$ref": "#/definitions/deviceTarget" },
+        { "$ref": "#/definitions/providerTarget" }
+      ]
     },
     "rollback": {
       "type": "object",
@@ -51,6 +178,7 @@
         "policyId",
         "policyVersion",
         "provider",
+        "target",
         "platform",
         "securityObjective",
         "severity",
@@ -92,6 +220,9 @@
             "network-security"
           ]
         },
+        "target": {
+          "$ref": "#/definitions/target"
+        },
         "platform": {
           "type": "string",
           "minLength": 1
@@ -128,10 +259,10 @@
           "$ref": "#/definitions/stringList"
         },
         "dependencies": {
-          "$ref": "#/definitions/stringList"
+          "$ref": "#/definitions/policyReferenceList"
         },
         "conflicts": {
-          "$ref": "#/definitions/stringList"
+          "$ref": "#/definitions/policyReferenceList"
         },
         "deploymentRing": {
           "enum": ["none", "lab", "pilot", "broad"]

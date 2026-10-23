@@ -12,6 +12,30 @@ The shared versioned policy document is provider-neutral metadata. Provider name
 
 The current capability registry is static local reference data and lists adapters as unimplemented. It is not live support discovery. Examples are explicitly illustrative.
 
+## Targeting and assignment model
+
+Policy schema version 1.1 requires every policy to declare either a device target or a provider/tenant scope. Device targets select Windows and/or Android device families, an explicit OS vocabulary, local logical group references and, where syntax permits, opaque device references. Exclusions are expressed separately for groups and device references. The document-level device group catalog supports parent/child scope declarations and rejects missing references, incompatible OS constraints, and hierarchy cycles.
+
+These group IDs are local names, not Microsoft Entra/Intune identifiers. The model does not include live membership data. Equal groups and parent/child relationships are treated as overlapping; unrelated groups with compatible OS/device constraints remain ambiguous. Declared exclusions are applied to known hierarchy overlap. Different device types or disjoint OS sets are treated as disjoint. Conflict checks compare the same provider and setting path only; contradictory settings on known overlapping scopes are errors, compatible values are accepted, and unknown overlap is reported as `NOT_VERIFIED`. No policy wins automatically.
+
+Device IDs use an opaque syntax only and are not real or invented inventory entries in examples. Their existence, enrollment, membership, provider support, and targetability cannot be verified offline.
+
+## Provider adapter contract
+
+The local capability registry separates four future adapter responsibilities: authentication status, permission verification, device inventory retrieval, and deployment execution. All are `not-implemented` in this foundation. Static capability declarations do not authenticate a caller or verify tenant permissions.
+
+A future Microsoft Graph/Intune adapter should expose separate operations with typed, sanitized results:
+
+| Operation | Required result | Current status |
+|---|---|---|
+| Authentication check | `status`, `checkedAt`, `providerContacted`; never return credential material | Not implemented |
+| Permission verification | `status`, verified permission names, evidence source, timestamp | Not implemented |
+| Device inventory read | `status`, scoped opaque references, evidence source, timestamp | Not implemented |
+| Group membership / explicit targeting check | `status`, opaque scope references, evidence source, timestamp | Not implemented |
+| Policy deployment | `status`, approval reference, target scope, change reference, provider response status | Not implemented |
+
+Unavailable or inconclusive reads must return `NOT_VERIFIED`; errors must remain errors and never be converted to success. These are interface requirements, not callable methods or evidence of connectivity. Future Graph/Intune work should begin with an independently reviewed read-only adapter. Credentials must be obtained through an approved secret broker and never written to policy, reports, or audit files. Deployment must remain a separate component gated by validation, explicit authorization and confirmation, scoped targets, verified provider state, and tested rollback.
+
 ## Policy lifecycle and state model
 
 The intended lifecycle is: desired policy → schema validation → prerequisite/capability assessment → offline plan → separately approved pilot → provider-reported deployed state → endpoint verification → authorized rollback when necessary.

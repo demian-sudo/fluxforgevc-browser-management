@@ -5,8 +5,9 @@ An offline-first foundation for describing and validating enterprise security po
 ## Current capabilities
 
 - Versioned JSON policy schema and sanitized illustrative examples.
-- Offline schema, dependency, conflict, prerequisite, and local capability validation.
+- Offline schema, dependency, device-targeting, assignment-conflict, prerequisite, and local capability validation.
 - Sanitized JSON and Markdown reports with separate desired and observed states.
+- Sanitized local JSON Lines audit events for validation outcomes and denied unavailable modes.
 - Credential-free PowerShell tests and GitHub Actions validation.
 
 Provider adapters, live inventory, policy deployment, pilot execution, and rollback are not implemented. No capability or license is inferred from an example policy.
@@ -25,7 +26,7 @@ From the repository root:
 pwsh -NoProfile -File .\src\Invoke-FluxForgePolicyValidation.ps1
 ```
 
-The validator reads only local policy, schema, and capability registry files. It never authenticates, makes network requests, or writes provider configuration. It writes JSON and Markdown reports under `reports/policy-audit`; this directory is ignored by Git. The report's `isValid` and `validationExitCode` indicate structural/cross-policy validation outcome. `NOT_VERIFIED` means there is no provider or endpoint observation; it is not a pass.
+The validator reads only local policy, schema, and capability registry files. It never authenticates, makes network requests, or writes provider configuration. It writes JSON and Markdown reports and appends sanitized audit events under `reports/policy-audit`; this directory is ignored by Git. Use `-AuditLogPath` to select another local event-log path. The report's `isValid` and `validationExitCode` indicate structural/cross-policy validation outcome. `NOT_VERIFIED` means there is no provider or endpoint observation; it is not a pass.
 
 Select among the implemented offline modes:
 
@@ -36,6 +37,8 @@ pwsh -NoProfile -File .\src\Invoke-FluxForgePolicyValidation.ps1 -Mode plan
 ```
 
 `pilot`, `enforce`, and `rollback` are recognized but blocked before processing inputs or writing reports. They are future modes, not available operations. A dry run is local-only and has no provider client.
+
+The schema validates declared Windows/Android OS and logical group scope compatibility, but not real membership, enrollment, provider group identity, or remote management. See the [policy schema guide](docs/Policy-Schema-and-Validation.md) for conflict semantics and the [audit and safety guide](docs/Audit-Results-and-Security.md) for event-log limits, lifecycle prerequisites, and recovery guidance.
 
 ## Run tests
 

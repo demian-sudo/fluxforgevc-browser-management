@@ -1,10 +1,33 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
+  "deviceGroups": [
+    {
+      "groupId": "WINDOWS-PILOT",
+      "deviceType": "windows",
+      "operatingSystems": ["windows-10", "windows-11"],
+      "parentGroupIds": []
+    },
+    {
+      "groupId": "ANDROID-PILOT",
+      "deviceType": "android",
+      "operatingSystems": ["android-12", "android-13", "android-14", "android-15"],
+      "parentGroupIds": []
+    }
+  ],
   "policies": [
     {
       "policyId": "EXAMPLE-WINDOWS-FIREWALL",
       "policyVersion": "1.0.0",
       "provider": "windows",
+      "target": {
+        "kind": "device",
+        "deviceTypes": ["windows"],
+        "operatingSystems": ["windows-10", "windows-11"],
+        "groupIds": ["WINDOWS-PILOT"],
+        "excludedGroupIds": [],
+        "deviceIds": [],
+        "excludedDeviceIds": []
+      },
       "platform": "Windows",
       "securityObjective": "Maintain host firewall protection.",
       "severity": "high",
@@ -40,6 +63,10 @@
       "policyId": "EXAMPLE-GOOGLE-ADMIN-MFA",
       "policyVersion": "1.0.0",
       "provider": "google-workspace",
+      "target": {
+        "kind": "provider",
+        "providerScope": "tenant"
+      },
       "platform": "Google Workspace",
       "securityObjective": "Require strong authentication for privileged accounts.",
       "severity": "critical",
@@ -75,6 +102,10 @@
       "policyId": "EXAMPLE-CHROME-BROWSER-PROTECTION",
       "policyVersion": "1.0.0",
       "provider": "chrome-enterprise",
+      "target": {
+        "kind": "provider",
+        "providerScope": "organization"
+      },
       "platform": "Chrome Enterprise",
       "securityObjective": "Use supported browser protections against unsafe content.",
       "severity": "high",
@@ -110,6 +141,15 @@
       "policyId": "EXAMPLE-ANDROID-DEVICE-LOCK",
       "policyVersion": "1.0.0",
       "provider": "android-enterprise",
+      "target": {
+        "kind": "device",
+        "deviceTypes": ["android"],
+        "operatingSystems": ["android-12", "android-13", "android-14", "android-15"],
+        "groupIds": ["ANDROID-PILOT"],
+        "excludedGroupIds": [],
+        "deviceIds": [],
+        "excludedDeviceIds": []
+      },
       "platform": "Android Enterprise",
       "securityObjective": "Require a secure screen lock on managed devices.",
       "severity": "high",
@@ -145,6 +185,10 @@
       "policyId": "EXAMPLE-VPN-SECURE-REMOTE-ACCESS",
       "policyVersion": "1.0.0",
       "provider": "vpn",
+      "target": {
+        "kind": "provider",
+        "providerScope": "organization"
+      },
       "platform": "VPN provider not selected",
       "securityObjective": "Require approved secure remote access for organizational resources.",
       "severity": "high",
@@ -180,6 +224,10 @@
       "policyId": "EXAMPLE-DNS-SECURE-RESOLUTION",
       "policyVersion": "1.0.0",
       "provider": "dns",
+      "target": {
+        "kind": "provider",
+        "providerScope": "organization"
+      },
       "platform": "DNS provider not selected",
       "securityObjective": "Use an approved resolver and filtering configuration.",
       "severity": "medium",
@@ -215,6 +263,10 @@
       "policyId": "EXAMPLE-NETWORK-SEGMENTATION",
       "policyVersion": "1.0.0",
       "provider": "network-security",
+      "target": {
+        "kind": "provider",
+        "providerScope": "organization"
+      },
       "platform": "Network equipment not selected",
       "securityObjective": "Restrict network paths to reviewed least-privilege flows.",
       "severity": "high",

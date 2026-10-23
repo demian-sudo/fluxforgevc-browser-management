@@ -4,6 +4,16 @@
   "reviewedAt": "2026-10-16",
   "reviewBasis": "Repository inspection only; no provider was contacted.",
   "providerContacted": false,
+  "integrationBoundary": {
+    "authenticationStatus": "not-implemented",
+    "permissionVerificationStatus": "not-implemented",
+    "deviceInventoryStatus": "not-implemented",
+    "deviceGroupMembershipStatus": "not-implemented",
+    "explicitDeviceTargetingStatus": "not-implemented",
+    "deploymentExecutionStatus": "not-implemented",
+    "unknownEvidenceState": "NOT_VERIFIED",
+    "credentialPersistence": "prohibited"
+  },
   "providers": {
     "windows": {
       "adapterStatus": "not-implemented",
