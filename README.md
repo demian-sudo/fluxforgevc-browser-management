@@ -45,6 +45,8 @@ The schema validates declared Windows/Android OS and logical group scope compati
 
 ```powershell
 pwsh -NoProfile -File .\tests\Test-FluxForgePolicyFoundation.ps1
+pwsh -NoProfile -File .\tests\Test-FluxForgeEnvironmentAudit.ps1
+pwsh -NoProfile -File .\tests\Test-FluxForgeWindowsSecurity.ps1
 ```
 
 Tests create temporary fixtures and reports, then remove them. They do not require production credentials or contact a provider.
