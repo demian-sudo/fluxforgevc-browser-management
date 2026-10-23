@@ -11,7 +11,9 @@ The versioned schema is `config/schema/policy.schema.json`. It describes a polic
 - Deployment ring and validation/verification steps.
 - Rollback requirements, owner, review date, and illustrative status.
 
-An `enforce` policy must include rollback information, keep `rollback.required` and `rollback.destructiveConfirmationRequired` true, and provide a non-whitespace rollback plan. Enforcement is not implemented and remains blocked by the script. Review dates must use `yyyy-MM-dd` and be real calendar dates. Cross-policy checks detect duplicate IDs, missing dependency references, declared conflicts, and different values for the same setting path when provider and platform match. An offline prerequisite is only considered supplied if explicitly passed to the tool; that does not independently verify the assertion.
+An `enforce` policy must include rollback information, keep `rollback.required` and `rollback.destructiveConfirmationRequired` true, and provide a non-whitespace rollback plan. Enforcement is not implemented and remains blocked by the script. Review dates must use `yyyy-MM-dd` and be real calendar dates. Cross-policy checks detect duplicate IDs, missing dependency references, circular dependencies, declared conflicts, and different values for the same setting path when provider and platform match. An offline prerequisite is only considered supplied if explicitly passed to the tool; that does not independently verify the assertion.
+
+Dependency validation builds a directed graph from references to policies present in the document and uses an iterative strongly connected component traversal. Every policy in a multi-policy cyclic component receives `ERROR` status and exactly one sanitized circular-dependency finding, including when multiple cycles overlap. Acyclic policies are not marked cyclic. Missing references are reported separately because their targets are not graph vertices; self-references receive the existing self-dependency finding and are not reported as multi-policy cycles. Any of these errors sets the affected policy's status to `ERROR`.
 
 ## Run validation
 

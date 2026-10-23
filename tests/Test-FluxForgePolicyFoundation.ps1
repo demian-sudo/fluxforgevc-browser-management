@@ -70,7 +70,12 @@ function Invoke-ValidatorProcess {
     $process = [System.Diagnostics.Process]::Start($startInfo)
     $stdoutTask = $process.StandardOutput.ReadToEndAsync()
     $stderrTask = $process.StandardError.ReadToEndAsync()
-    $process.WaitForExit()
+    if (-not $process.WaitForExit(30000)) {
+        $process.Kill()
+        $process.WaitForExit()
+        $process.Dispose()
+        throw 'Validator did not terminate within 30 seconds.'
+    }
     $stdout = $stdoutTask.GetAwaiter().GetResult()
     $stderr = $stderrTask.GetAwaiter().GetResult()
     $exitCode = $process.ExitCode
@@ -96,6 +101,28 @@ function Invoke-ValidatorProcess {
 function Copy-TestPolicy {
     param([object]$Document)
     return ConvertFrom-Json -InputObject (ConvertTo-Json -InputObject $Document -Depth 100) -AsHashtable -Depth 100
+}
+
+function New-DependencyTestDocument {
+    param(
+        [object]$TemplatePolicy,
+        [string[]]$PolicyIds,
+        [hashtable]$Dependencies = @{}
+    )
+
+    $policies = foreach ($policyId in $PolicyIds) {
+        $policy = Copy-TestPolicy $TemplatePolicy
+        $policy.policyId = $policyId
+        if ($Dependencies.ContainsKey($policyId)) {
+            $policy.dependencies = [string[]]$Dependencies[$policyId]
+        }
+        else {
+            $policy.dependencies = [string[]]@()
+        }
+        $policy
+    }
+
+    return @{ schemaVersion = '1.0'; policies = @($policies) }
 }
 
 try {
@@ -140,6 +167,97 @@ try {
     $missingDependency.policies[0].dependencies = @('POLICY-DOES-NOT-EXIST')
     $missingDependencyResult = Invoke-TestValidation $missingDependency 'missing-dependency'
     Assert-True (($missingDependencyResult.findings | Where-Object { $_.message -eq 'A declared policy dependency is missing.' }).Count -eq 1) 'Missing dependencies must be detected.'
+    Assert-True (($missingDependencyResult.policies | Where-Object { $_.policyRef -eq 'POLICY-001' }).status -eq 'ERROR') 'Missing dependencies must set the affected policy status to ERROR.'
+
+    $selfDependency = New-DependencyTestDocument -TemplatePolicy $validDocument.policies[0] -PolicyIds @('SELF-REFERENCE-A', 'SELF-REFERENCE-B') -Dependencies @{ 'SELF-REFERENCE-A' = @('SELF-REFERENCE-A'); 'SELF-REFERENCE-B' = @('SELF-REFERENCE-A') }
+    $selfDependencyResult = Invoke-TestValidation $selfDependency 'self-dependency'
+    Assert-True (($selfDependencyResult.findings | Where-Object { $_.message -eq 'A policy cannot depend on itself.' }).Count -eq 1) 'Self-dependencies must remain distinct findings.'
+    Assert-True (($selfDependencyResult.policies | Where-Object { $_.policyRef -eq 'POLICY-001' }).status -eq 'ERROR') 'Self-dependencies must set the affected policy status to ERROR.'
+    Assert-True (($selfDependencyResult.policies | Where-Object { $_.policyRef -eq 'POLICY-002' }).status -ne 'ERROR') 'A policy that only depends on a self-referencing policy must not be marked as erroneous.'
+    Assert-True (($selfDependencyResult.findings | Where-Object { $_.message -eq 'Circular policy dependency detected.' }).Count -eq 0) 'A self-dependency must not be reported as a multi-policy cycle.'
+
+    $cycleCases = @(
+        @{
+            Name = 'two-node-cycle'
+            PolicyIds = @('TWO-CYCLE-A', 'TWO-CYCLE-B', 'ACYCLIC-C', 'ACYCLIC-D')
+            Dependencies = @{ 'TWO-CYCLE-A' = @('TWO-CYCLE-B'); 'TWO-CYCLE-B' = @('TWO-CYCLE-A'); 'ACYCLIC-C' = @('ACYCLIC-D') }
+            CyclicIds = @('TWO-CYCLE-A', 'TWO-CYCLE-B')
+        },
+        @{
+            Name = 'three-node-cycle'
+            PolicyIds = @('THREE-CYCLE-A', 'THREE-CYCLE-B', 'THREE-CYCLE-C', 'ACYCLIC-D')
+            Dependencies = @{ 'THREE-CYCLE-A' = @('THREE-CYCLE-B'); 'THREE-CYCLE-B' = @('THREE-CYCLE-C'); 'THREE-CYCLE-C' = @('THREE-CYCLE-A') }
+            CyclicIds = @('THREE-CYCLE-A', 'THREE-CYCLE-B', 'THREE-CYCLE-C')
+        },
+        @{
+            Name = 'independent-cycles'
+            PolicyIds = @('INDEPENDENT-A', 'INDEPENDENT-B', 'INDEPENDENT-C', 'INDEPENDENT-D', 'CHAIN-E', 'CHAIN-F')
+            Dependencies = @{ 'INDEPENDENT-A' = @('INDEPENDENT-B'); 'INDEPENDENT-B' = @('INDEPENDENT-A'); 'INDEPENDENT-C' = @('INDEPENDENT-D'); 'INDEPENDENT-D' = @('INDEPENDENT-C'); 'CHAIN-E' = @('CHAIN-F') }
+            CyclicIds = @('INDEPENDENT-A', 'INDEPENDENT-B', 'INDEPENDENT-C', 'INDEPENDENT-D')
+        },
+        @{
+            Name = 'overlapping-cycles'
+            PolicyIds = @('OVERLAP-A', 'OVERLAP-B', 'OVERLAP-C', 'ACYCLIC-INBOUND')
+            Dependencies = @{ 'OVERLAP-A' = @('OVERLAP-B'); 'OVERLAP-B' = @('OVERLAP-A', 'OVERLAP-C'); 'OVERLAP-C' = @('OVERLAP-B'); 'ACYCLIC-INBOUND' = @('OVERLAP-A') }
+            CyclicIds = @('OVERLAP-A', 'OVERLAP-B', 'OVERLAP-C')
+        },
+        @{
+            Name = 'acyclic-chain'
+            PolicyIds = @('CHAIN-A', 'CHAIN-B', 'CHAIN-C', 'CHAIN-D')
+            Dependencies = @{ 'CHAIN-A' = @('CHAIN-B'); 'CHAIN-B' = @('CHAIN-C'); 'CHAIN-C' = @('CHAIN-D') }
+            CyclicIds = @()
+        }
+    )
+
+    foreach ($cycleCase in $cycleCases) {
+        $graphDocument = New-DependencyTestDocument -TemplatePolicy $validDocument.policies[0] -PolicyIds $cycleCase.PolicyIds -Dependencies $cycleCase.Dependencies
+        $graphResult = Invoke-TestValidation $graphDocument $cycleCase.Name
+        $expectedCycleFindings = @($cycleCase.CyclicIds).Count
+        $cycleFindings = @($graphResult.findings | Where-Object { $_.message -eq 'Circular policy dependency detected.' })
+        Assert-True ($cycleFindings.Count -eq $expectedCycleFindings) "$($cycleCase.Name) must produce exactly one circular finding per cyclic policy."
+        Assert-True (($graphResult.isValid -eq ($expectedCycleFindings -eq 0))) "$($cycleCase.Name) must classify document validity according to cycle errors."
+
+        for ($policyIndex = 0; $policyIndex -lt $cycleCase.PolicyIds.Count; $policyIndex++) {
+            $policyId = $cycleCase.PolicyIds[$policyIndex]
+            $policyReference = 'POLICY-{0:D3}' -f ($policyIndex + 1)
+            $policyResult = $graphResult.policies | Where-Object { $_.policyRef -eq $policyReference } | Select-Object -First 1
+            $policyCycleFindings = @($cycleFindings | Where-Object { $_.policyRef -eq $policyReference })
+            if ($policyId -in $cycleCase.CyclicIds) {
+                Assert-True ($policyResult.status -eq 'ERROR') "$($cycleCase.Name): cyclic policy '$policyReference' must have ERROR status."
+                Assert-True ($policyCycleFindings.Count -eq 1) "$($cycleCase.Name): cyclic policy '$policyReference' must have exactly one cycle finding."
+            }
+            else {
+                Assert-True ($policyResult.status -ne 'ERROR') "$($cycleCase.Name): acyclic policy '$policyReference' must not be marked cyclic."
+                Assert-True ($policyCycleFindings.Count -eq 0) "$($cycleCase.Name): acyclic policy '$policyReference' must have no cycle finding."
+            }
+        }
+    }
+
+    $sanitizedCycleIds = @('CYCLE-SENTINEL-POLICY-A', 'CYCLE-SENTINEL-POLICY-B')
+    $sanitizedCycle = New-DependencyTestDocument -TemplatePolicy $validDocument.policies[0] -PolicyIds $sanitizedCycleIds -Dependencies @{ $sanitizedCycleIds[0] = @($sanitizedCycleIds[1]); $sanitizedCycleIds[1] = @($sanitizedCycleIds[0]) }
+    $cycleSecret = 'CYCLE-SENTINEL-SENSITIVE-VALUE'
+    foreach ($policy in $sanitizedCycle.policies) {
+        $policy.owner = $cycleSecret
+        $policy.platform = $cycleSecret
+        $policy.settings['clientSecret'] = $cycleSecret
+    }
+    $sanitizedCycleResult = Invoke-TestValidation $sanitizedCycle 'sanitized-cycle'
+    $cycleJson = Get-Content -LiteralPath $sanitizedCycleResult.jsonReportPath -Raw
+    $cycleMarkdown = Get-Content -LiteralPath $sanitizedCycleResult.markdownReportPath -Raw
+    foreach ($sentinel in @($sanitizedCycleIds) + @($cycleSecret)) {
+        Assert-True (-not $cycleJson.Contains($sentinel) -and -not $cycleMarkdown.Contains($sentinel)) 'Cycle reports must not expose raw IDs, sensitive settings, or untrusted metadata.'
+    }
+    Assert-True (($sanitizedCycleResult.findings | Where-Object { $_.message -eq 'Circular policy dependency detected.' }).Count -eq 2) 'Sanitized cycle reports must retain one finding for each affected policy.'
+
+    $terminationIds = @(1..40 | ForEach-Object { 'TERMINATION-{0:D3}' -f $_ })
+    $terminationDependencies = @{}
+    for ($policyIndex = 0; $policyIndex -lt $terminationIds.Count - 1; $policyIndex++) {
+        $terminationDependencies[$terminationIds[$policyIndex]] = @($terminationIds[$policyIndex + 1])
+    }
+    $terminationDependencies[$terminationIds[-1]] = @($terminationIds[0])
+    $terminationDocument = New-DependencyTestDocument -TemplatePolicy $validDocument.policies[0] -PolicyIds $terminationIds -Dependencies $terminationDependencies
+    $terminationResult = Invoke-TestValidation $terminationDocument 'cycle-termination'
+    Assert-True ($terminationResult.policies.Count -eq $terminationIds.Count -and $terminationResult.summary.errorCount -ge $terminationIds.Count) 'A larger cycle must terminate and classify each policy as an error.'
 
     $declaredConflict = Copy-TestPolicy $validDocument
     $declaredConflict.policies[0].conflicts = @([string]$declaredConflict.policies[1].policyId)
