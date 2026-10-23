@@ -7,6 +7,7 @@ $validator = Join-Path $projectRoot 'src\Invoke-FluxForgePolicyValidation.ps1'
 $examplePolicy = Join-Path $projectRoot 'config\examples\policies.json'
 $schema = Join-Path $projectRoot 'config\schema\policy.schema.json'
 $capabilities = Join-Path $projectRoot 'config\provider-capabilities.json'
+$graphAdapter = Join-Path $projectRoot 'src\FluxForge.MicrosoftGraph.ReadOnly.psm1'
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) "FluxForgeVC-PolicyTest-$([guid]::NewGuid().ToString('N'))"
 $script:testCount = 0
 
@@ -487,13 +488,157 @@ try {
     Assert-True ((@($explicitDeviceTargetResult.findings | Where-Object { $_.message -eq 'Explicit device identifiers are syntactically valid but not provider-verified.' })).Count -eq 1) 'Syntactically valid explicit identifiers must remain unverified offline.'
 
     $providerReadiness = Get-Content -LiteralPath $capabilities -Raw | ConvertFrom-Json
-    Assert-True ($providerReadiness.integrationBoundary.authenticationStatus -eq 'not-implemented' -and
-        $providerReadiness.integrationBoundary.permissionVerificationStatus -eq 'not-implemented' -and
-        $providerReadiness.integrationBoundary.deviceInventoryStatus -eq 'not-implemented' -and
-        $providerReadiness.integrationBoundary.deviceGroupMembershipStatus -eq 'not-implemented' -and
+    Assert-True ($providerReadiness.integrationBoundary.authenticationStatus -eq 'delegated-interactive-available-not-provider-verified' -and
+        $providerReadiness.integrationBoundary.permissionVerificationStatus -eq 'local-delegated-scope-check-implemented-not-provider-verified' -and
+        $providerReadiness.integrationBoundary.deviceInventoryStatus -eq 'read-only-adapter-implemented-not-provider-verified' -and
+        $providerReadiness.integrationBoundary.deviceGroupMembershipStatus -eq 'read-only-adapter-implemented-not-provider-verified' -and
         $providerReadiness.integrationBoundary.explicitDeviceTargetingStatus -eq 'not-implemented' -and
         $providerReadiness.integrationBoundary.deploymentExecutionStatus -eq 'not-implemented' -and
         $providerReadiness.integrationBoundary.unknownEvidenceState -eq 'NOT_VERIFIED') 'Provider authentication, permissions, inventory, and deployment must remain separate and unimplemented.'
+    Assert-True ($providerReadiness.providers.'microsoft-intune'.readOnlyIntegration.evidenceModel.devices.declaredInConfiguration -and
+        $providerReadiness.providers.'microsoft-intune'.readOnlyIntegration.evidenceModel.devices.implementedInCode -and
+        $providerReadiness.providers.'microsoft-intune'.readOnlyIntegration.evidenceModel.devices.providerAuthenticated -eq 'NOT_VERIFIED' -and
+        $providerReadiness.providers.'microsoft-intune'.readOnlyIntegration.evidenceModel.devices.permissionGranted -eq 'NOT_VERIFIED' -and
+        $providerReadiness.providers.'microsoft-intune'.readOnlyIntegration.evidenceModel.devices.operationVerified -eq 'NOT_VERIFIED') 'Provider capability declarations, implementation, authentication, permissions, and operation evidence must remain distinct.'
+
+    Import-Module $graphAdapter -Force
+    $graphConfiguration = Get-FluxForgeGraphProviderConfiguration
+    Assert-True ($graphConfiguration.provider -eq 'microsoft-graph' -and $graphConfiguration.operationMode -eq 'read-only' -and $graphConfiguration.status -eq 'NOT_VERIFIED' -and -not $graphConfiguration.credentialsPersisted) 'Provider configuration must be separate from authentication and remain unverified.'
+
+    $missingSdk = Get-FluxForgeGraphConnectionStatus -SdkModuleLocator { $null }
+    Assert-True (-not $missingSdk.sdkAvailable -and -not $missingSdk.contextPresent -and $missingSdk.status -eq 'NOT_VERIFIED') 'A missing Graph SDK must remain unverified without attempting authentication.'
+
+    $missingAuthentication = Get-FluxForgeGraphConnectionStatus -SdkModuleLocator { 'test-sdk-marker' } -ContextProvider { $null }
+    Assert-True ($missingAuthentication.sdkAvailable -and -not $missingAuthentication.contextPresent -and -not $missingAuthentication.authenticated) 'An unavailable context must not be reported as authenticated.'
+
+    $insufficientPermissions = Test-FluxForgeGraphPermission -Operation devices -ContextProvider { @{ Scopes = @('User.Read') } }
+    Assert-True ($insufficientPermissions.status -eq 'NOT_GRANTED' -and $insufficientPermissions.requiredScopes -contains 'DeviceManagementManagedDevices.Read.All') 'Device inventory must require its specific delegated read scope.'
+    Assert-True ((Get-FluxForgeGraphRequiredScopes -Operation assignments) -contains 'DeviceManagementConfiguration.Read.All') 'Assignment reads must use the configuration-read delegated scope.'
+
+    $missingAuthRequestCount = [System.Collections.Generic.List[string]]::new()
+    $missingAuthRequest = {
+        param($Method, $Uri)
+        $missingAuthRequestCount.Add([string]$Method)
+        @{ '@odata.context' = 'https://graph.microsoft.com/v1.0/$metadata#managedDevices'; value = @() }
+    }
+    $missingAuthBlocked = $false
+    try {
+        Get-FluxForgeGraphManagedDevice -RequestInvoker $missingAuthRequest -ContextProvider { $null } | Out-Null
+    }
+    catch {
+        $missingAuthBlocked = $_.Exception.Message -match 'blocked'
+    }
+    Assert-True ($missingAuthBlocked -and $missingAuthRequestCount.Count -eq 0) 'Missing authentication must block requests before invoking the transport.'
+
+    $insufficientPermissionBlocked = $false
+    try {
+        Get-FluxForgeGraphManagedDevice -RequestInvoker $missingAuthRequest -ContextProvider { @{ Scopes = @('User.Read') } } | Out-Null
+    }
+    catch {
+        $insufficientPermissionBlocked = $_.Exception.Message -match 'DeviceManagementManagedDevices.Read.All'
+    }
+    Assert-True ($insufficientPermissionBlocked -and $missingAuthRequestCount.Count -eq 0) 'Insufficient delegated permissions must block requests before transport.'
+
+    $graphMethods = [System.Collections.Generic.List[string]]::new()
+    $graphUris = [System.Collections.Generic.List[string]]::new()
+    $mockGraphRequest = {
+        param($Method, $Uri)
+        $graphMethods.Add([string]$Method)
+        $graphUris.Add([string]$Uri)
+        if ($Uri -match 'managedDevices') {
+            return @{ '@odata.context' = 'https://graph.microsoft.com/v1.0/$metadata#managedDevices'; value = @(@{ id = 'device-fixture'; operatingSystem = 'Windows'; osVersion = '11'; managementState = 'managed'; azureADDeviceId = 'directory-fixture' }) }
+        }
+        if ($Uri -match '/groups/.+/members/') {
+            return @{ '@odata.context' = 'https://graph.microsoft.com/v1.0/$metadata#devices'; value = @(@{ id = 'device-fixture'; displayName = 'test fixture' }) }
+        }
+        if ($Uri -match '/groups\\?') {
+            return @{ '@odata.context' = 'https://graph.microsoft.com/v1.0/$metadata#groups'; value = @(@{ id = 'group-fixture'; displayName = 'test fixture' }) }
+        }
+        throw 'Unexpected mock Graph request.'
+    }
+    $deviceScopeContext = { @{ Scopes = @('DeviceManagementManagedDevices.Read.All') } }
+    $mockInventory = Get-FluxForgeGraphManagedDevice -RequestInvoker $mockGraphRequest -ContextProvider $deviceScopeContext
+    Assert-True ($mockInventory.status -eq 'MOCKED' -and -not $mockInventory.providerContacted -and $mockInventory.count -eq 1) 'Mock device inventory must never be represented as verified provider evidence.'
+    $mockDeviceState = Get-FluxForgeGraphManagedDeviceState -DeviceId '11111111-1111-1111-1111-111111111111' -RequestInvoker {
+        param($Method, $Uri)
+        $graphMethods.Add([string]$Method)
+        @{ id = 'device-fixture'; managementState = 'managed' }
+    } -ContextProvider $deviceScopeContext
+    Assert-True ($mockDeviceState.status -eq 'MOCKED' -and $mockDeviceState.providerReportedState -eq 'managed' -and $mockDeviceState.endpointObservedState -eq 'NOT_VERIFIED') 'Provider-reported device state must not be described as endpoint-observed state.'
+
+    $groupScopeContext = { @{ Scopes = @('Group.Read.All', 'GroupMember.Read.All') } }
+    $mockGroups = Get-FluxForgeGraphGroup -RequestInvoker $mockGraphRequest -ContextProvider $groupScopeContext
+    $mockMembers = Get-FluxForgeGraphGroupDeviceMember -GroupId '11111111-1111-1111-1111-111111111111' -RequestInvoker $mockGraphRequest -ContextProvider $groupScopeContext
+    Assert-True ($mockGroups.status -eq 'MOCKED' -and $mockMembers.status -eq 'MOCKED' -and $mockGroups.count -eq 1 -and $mockMembers.count -eq 1) 'Group and group-device membership reads must work through injected offline responses.'
+    Assert-True (($graphMethods | Where-Object { $_ -ne 'GET' }).Count -eq 0) 'Every Graph transport request must be read-only GET.'
+    Assert-True (($graphUris | Where-Object { $_ -notmatch '^https://graph\.microsoft\.com/v1\.0/' }).Count -eq 0) 'Graph requests must remain pinned to the Microsoft Graph v1.0 endpoint.'
+
+    $connectionFailure = $false
+    try {
+        Get-FluxForgeGraphManagedDevice -RequestInvoker { throw 'Mock connection failure.' } -ContextProvider $deviceScopeContext | Out-Null
+    }
+    catch {
+        $connectionFailure = $_.Exception.Message -match 'Mock connection failure'
+    }
+    Assert-True $connectionFailure 'Graph connection failures must surface as failures rather than empty inventory.'
+
+    $missingInventory = $false
+    try {
+        Get-FluxForgeGraphManagedDevice -RequestInvoker { $null } -ContextProvider $deviceScopeContext | Out-Null
+    }
+    catch {
+        $missingInventory = $_.Exception.Message -match 'incomplete collection'
+    }
+    Assert-True $missingInventory 'Missing inventory responses must fail instead of representing an empty tenant.'
+
+    $incompleteMembership = $false
+    try {
+        Get-FluxForgeGraphGroupDeviceMember -GroupId '11111111-1111-1111-1111-111111111111' -RequestInvoker { @{ value = @() } } -ContextProvider $groupScopeContext | Out-Null
+    }
+    catch {
+        $incompleteMembership = $_.Exception.Message -match 'incomplete collection'
+    }
+    Assert-True $incompleteMembership 'Incomplete group-membership responses must not be reported as empty membership.'
+
+    $pagedRequest = {
+        param($Method, $Uri)
+        $graphMethods.Add([string]$Method)
+        if ($Uri -match 'skiptoken') {
+            return @{ '@odata.context' = 'https://graph.microsoft.com/v1.0/$metadata#managedDevices'; value = @(@{ id = 'second-device' }) }
+        }
+        @{ '@odata.context' = 'https://graph.microsoft.com/v1.0/$metadata#managedDevices'; value = @(@{ id = 'first-device' }); '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/deviceManagement/managedDevices?$skiptoken=offline-fixture' }
+    }
+    $pagedInventory = Get-FluxForgeGraphManagedDevice -RequestInvoker $pagedRequest -ContextProvider $deviceScopeContext
+    Assert-True ($pagedInventory.status -eq 'MOCKED' -and $pagedInventory.count -eq 2 -and $pagedInventory.pageCount -eq 2) 'Complete paged provider responses must read all mock pages.'
+
+    $invalidNextLinkBlocked = $false
+    try {
+        Get-FluxForgeGraphManagedDevice -RequestInvoker { @{ '@odata.context' = 'https://graph.microsoft.com/v1.0/$metadata#managedDevices'; value = @(); '@odata.nextLink' = 'https://example.invalid/next' } } -ContextProvider $deviceScopeContext | Out-Null
+    }
+    catch {
+        $invalidNextLinkBlocked = $_.Exception.Message -match 'invalid pagination link'
+    }
+    Assert-True $invalidNextLinkBlocked 'Pagination must reject links outside the fixed Graph v1.0 endpoint.'
+
+    $unsupportedGraphOperation = $false
+    try {
+        Get-FluxForgeGraphRequiredScopes -Operation 'write' | Out-Null
+    }
+    catch {
+        $unsupportedGraphOperation = $true
+    }
+    Assert-True $unsupportedGraphOperation 'Unsupported Graph operations must be rejected by the provider interface.'
+
+    $mockInventoryComparison = Compare-FluxForgeInventoryToPolicyTarget -Policy $validDocument.policies[0] -Inventory $mockInventory -LogicalToProviderGroupId @{}
+    Assert-True ($mockInventoryComparison.status -eq 'NOT_VERIFIED' -and $null -eq $mockInventoryComparison.matchedCount) 'Mock or unknown inventory must never be interpreted as zero matching devices.'
+    $unmappedExplicitDevice = Copy-TestPolicy $validDocument
+    $unmappedExplicitDevice.policies[0].target.deviceIds = @('DEVICE-TEST00001')
+    $unmappedDeviceComparison = Compare-FluxForgeInventoryToPolicyTarget -Policy $unmappedExplicitDevice.policies[0] -Inventory @{ status = 'VERIFIED'; complete = $true; items = @() } -LogicalToProviderGroupId @{ 'WINDOWS-PILOT' = 'provider-group-fixture' }
+    Assert-True ($unmappedDeviceComparison.status -eq 'NOT_VERIFIED' -and $null -eq $unmappedDeviceComparison.matchedCount) 'Unmapped explicit device references must not be treated as zero matching devices.'
+
+    $exportedGraphCommands = @(Get-Command -Module FluxForge.MicrosoftGraph.ReadOnly | Select-Object -ExpandProperty Name)
+    Assert-True (($exportedGraphCommands | Where-Object { $_ -match '^(New|Set|Update|Remove|Delete|Invoke)-' }).Count -eq 0) 'The provider adapter must not export write-capable operations.'
+    Remove-Module FluxForge.MicrosoftGraph.ReadOnly -Force
 
     $missingPrerequisite = & $validator -PolicyPath $examplePolicy -SchemaPath $schema -CapabilityRegistryPath $capabilities -OutputDirectory (Join-Path $testRoot 'missing-prerequisite')
     Assert-True (($missingPrerequisite.findings | Where-Object { $_.status -eq 'NOT_CONFIGURED' }).Count -gt 0) 'Unconfirmed prerequisites must be reported.'

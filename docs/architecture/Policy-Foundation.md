@@ -10,7 +10,7 @@ This repository began empty. It contains no pre-existing provider integrations o
 
 The shared versioned policy document is provider-neutral metadata. Provider names are identifiers for future independent adapters, not a claim of universal APIs. Planned adapter boundaries are Windows endpoints, Microsoft Intune, Google Workspace, Chrome Enterprise, Android Enterprise, VPN, DNS filtering, and network security. Each future adapter must own its documented API surface, authentication, least-privilege permissions, capability/licensing checks, provider-specific errors, and evidence provenance.
 
-The current capability registry is static local reference data and lists adapters as unimplemented. It is not live support discovery. Examples are explicitly illustrative.
+The current capability registry is static local reference data and is not live support discovery. The isolated Microsoft Graph module implements opt-in read-only requests, but has not been authenticated against a tenant. Examples are explicitly illustrative.
 
 ## Targeting and assignment model
 

@@ -5,10 +5,10 @@
   "reviewBasis": "Repository inspection only; no provider was contacted.",
   "providerContacted": false,
   "integrationBoundary": {
-    "authenticationStatus": "not-implemented",
-    "permissionVerificationStatus": "not-implemented",
-    "deviceInventoryStatus": "not-implemented",
-    "deviceGroupMembershipStatus": "not-implemented",
+    "authenticationStatus": "delegated-interactive-available-not-provider-verified",
+    "permissionVerificationStatus": "local-delegated-scope-check-implemented-not-provider-verified",
+    "deviceInventoryStatus": "read-only-adapter-implemented-not-provider-verified",
+    "deviceGroupMembershipStatus": "read-only-adapter-implemented-not-provider-verified",
     "explicitDeviceTargetingStatus": "not-implemented",
     "deploymentExecutionStatus": "not-implemented",
     "unknownEvidenceState": "NOT_VERIFIED",
@@ -20,8 +20,57 @@
       "capabilities": {}
     },
     "microsoft-intune": {
-      "adapterStatus": "not-implemented",
-      "capabilities": {}
+      "adapterStatus": "read-only-adapter-implemented",
+      "capabilities": {},
+      "readOnlyIntegration": {
+        "sdk": "Microsoft.Graph.Authentication",
+        "authentication": "delegated-interactive-available-not-provider-verified",
+        "permissionVerification": "implemented-from-local-delegated-context-not-provider-verified",
+        "deviceInventory": "implemented-read-only",
+        "deviceStateRead": "implemented-read-only-provider-reported-only",
+        "groups": "implemented-read-only",
+        "groupMembership": "implemented-read-only",
+        "policyAssignments": "implemented-read-only-device-configurations-only",
+        "operationEvidence": "NOT_VERIFIED-until-a-Graph-GET-succeeds",
+        "deployment": "not-implemented",
+        "evidenceModel": {
+          "devices": {
+            "declaredInConfiguration": true,
+            "implementedInCode": true,
+            "providerAuthenticated": "NOT_VERIFIED",
+            "permissionGranted": "NOT_VERIFIED",
+            "operationVerified": "NOT_VERIFIED"
+          },
+          "groups": {
+            "declaredInConfiguration": true,
+            "implementedInCode": true,
+            "providerAuthenticated": "NOT_VERIFIED",
+            "permissionGranted": "NOT_VERIFIED",
+            "operationVerified": "NOT_VERIFIED"
+          },
+          "groupMembers": {
+            "declaredInConfiguration": true,
+            "implementedInCode": true,
+            "providerAuthenticated": "NOT_VERIFIED",
+            "permissionGranted": "NOT_VERIFIED",
+            "operationVerified": "NOT_VERIFIED"
+          },
+          "assignments": {
+            "declaredInConfiguration": true,
+            "implementedInCode": true,
+            "providerAuthenticated": "NOT_VERIFIED",
+            "permissionGranted": "NOT_VERIFIED",
+            "operationVerified": "NOT_VERIFIED"
+          },
+          "deployment": {
+            "declaredInConfiguration": false,
+            "implementedInCode": false,
+            "providerAuthenticated": "NOT_VERIFIED",
+            "permissionGranted": "NOT_VERIFIED",
+            "operationVerified": "NOT_VERIFIED"
+          }
+        }
+      },
     },
     "google-workspace": {
       "adapterStatus": "not-implemented",

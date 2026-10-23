@@ -8,9 +8,10 @@ An offline-first foundation for describing and validating enterprise security po
 - Offline schema, dependency, device-targeting, assignment-conflict, prerequisite, and local capability validation.
 - Sanitized JSON and Markdown reports with separate desired and observed states.
 - Sanitized local JSON Lines audit events for validation outcomes and denied unavailable modes.
+- Opt-in, read-only Microsoft Graph/Intune adapter for scoped delegated inventory and assignment inspection.
 - Credential-free PowerShell tests and GitHub Actions validation.
 
-Provider adapters, live inventory, policy deployment, pilot execution, and rollback are not implemented. No capability or license is inferred from an example policy.
+The opt-in Graph adapter supports delegated read-only requests for selected inventory, groups, memberships, and device-configuration assignments, but no tenant authentication or operation has been verified in this repository. Policy deployment, pilot execution, and rollback are not implemented. No capability or license is inferred from an example policy.
 
 ## Requirements
 
@@ -61,6 +62,7 @@ The examples cover Windows, Google Workspace, Chrome Enterprise, Android Enterpr
 - [Architecture and migration plan](docs/architecture/Policy-Foundation.md)
 - [Schema and validation guide](docs/Policy-Schema-and-Validation.md)
 - [Audit results and security handling](docs/Audit-Results-and-Security.md)
+- [Microsoft Graph read-only adapter](docs/Microsoft-Graph-Read-Only.md)
 
 ## Security boundaries
 
